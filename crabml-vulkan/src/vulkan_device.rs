@@ -15,7 +15,7 @@ use vulkano::command_buffer::BufferCopy;
 use vulkano::command_buffer::CommandBufferUsage;
 use vulkano::command_buffer::CopyBufferInfo;
 use vulkano::descriptor_set::allocator::StandardDescriptorSetAllocator;
-use vulkano::descriptor_set::PersistentDescriptorSet;
+use vulkano::descriptor_set::DescriptorSet;
 use vulkano::descriptor_set::WriteDescriptorSet;
 use vulkano::device::physical::PhysicalDeviceType;
 use vulkano::device::Device;
@@ -321,7 +321,7 @@ impl VulkanTensorDeviceInner {
 
         // copy the data from the staging buffer to the device buffer and wait.
         let mut builder = AutoCommandBufferBuilder::primary(
-            &self.command_buffer_allocator,
+            self.command_buffer_allocator.clone(),
             self.queue.queue_family_index(),
             CommandBufferUsage::OneTimeSubmit,
         )
@@ -365,7 +365,7 @@ impl VulkanTensorDeviceInner {
         };
         let command_buffer = {
             let mut builder = AutoCommandBufferBuilder::primary(
-                &self.command_buffer_allocator,
+                self.command_buffer_allocator.clone(),
                 self.queue.queue_family_index(),
                 CommandBufferUsage::OneTimeSubmit,
             )
@@ -387,7 +387,7 @@ impl VulkanTensorDeviceInner {
     pub fn copy_device_buffer_to_cpu(&self, src: Subbuffer<[u8]>, dst: &mut [u8]) {
         let command_buffer = {
             let mut builder = AutoCommandBufferBuilder::primary(
-                &self.command_buffer_allocator,
+                self.command_buffer_allocator.clone(),
                 self.queue.queue_family_index(),
                 CommandBufferUsage::OneTimeSubmit,
             )
@@ -440,8 +440,8 @@ impl VulkanTensorDeviceInner {
             .collect::<Vec<_>>();
 
         let layout = pipeline.layout().set_layouts().first().unwrap();
-        let set = PersistentDescriptorSet::new(
-            &self.descriptor_set_allocator,
+        let set = DescriptorSet::new(
+            self.descriptor_set_allocator.clone(),
             layout.clone(),
             write_descriptor_set,
             [],
@@ -452,7 +452,7 @@ impl VulkanTensorDeviceInner {
         let command_buffer = {
             // In order to execute our operation, we have to build a command buffer.
             let mut builder = AutoCommandBufferBuilder::primary(
-                &self.command_buffer_allocator,
+                self.command_buffer_allocator.clone(),
                 self.queue.queue_family_index(),
                 CommandBufferUsage::OneTimeSubmit,
             )
@@ -470,7 +470,7 @@ impl VulkanTensorDeviceInner {
             builder
                 .push_constants(pipeline.layout().clone(), 0, push_constants)
                 .unwrap();
-            builder.dispatch(dispatch_group).unwrap();
+            unsafe { builder.dispatch(dispatch_group) }.unwrap();
             builder.build().unwrap()
         };
 
